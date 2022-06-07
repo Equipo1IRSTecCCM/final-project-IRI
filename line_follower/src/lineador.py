@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+#<node name="pur_pur" pkg="pur_pur" type="pp_line.py"/>
+from turtle import pen
 import cv2
 import numpy as np
 import rospy
@@ -33,24 +35,31 @@ class line_follower:
         self.doing_pp = False
         self.sem_verde = False
         self.max_v = 0.5
+        self.enRecta = False
+        self.gd = 0
+        self.rd = 0
         
         rospy.init_node("line_follower")
 
         rospy.Subscriber('/video_source/raw',Image,self.source_callback)
-        rospy.Subscriber('/pp/finish',UInt8,self.finsh_pp_callback)
-
+        #rospy.Subscriber('/pp/finish',UInt8,self.finsh_pp_callback)
+        rospy.Subscriber('/img_properties/green/density',Float32,self.g_callback)
+        rospy.Subscriber('/img_properties/red/density',Float32,self.r_callback)
 
         rospy.Subscriber('/odom', Pose2D, self.odom_callback)
         self.twist_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.semf_msg = rospy.Publisher('/semforo',Image,queue_size=10)
         self.debug_msg = rospy.Publisher('/ojos',Image,queue_size=10)
         #self.points_publisher = rospy.Publisher('/pp/points', Float32MultiArray, queue_size=10)
-        self.pp_init = rospy.Publisher('/pp/init', UInt8, queue_size=10)
+        #self.pp_init = rospy.Publisher('/pp/init', UInt8, queue_size=10)
         self.t1 = rospy.Timer(rospy.Duration(self.dt),self.timer_callback)
         self.rate = rospy.Rate(10)
 
         rospy.on_shutdown(self.stop)
-
+    def g_callback(self,msg):
+        self.gd = msg.data
+    def r_callback(self,msg):
+        self.rd = msg.data
     def odom_callback(self, msg):
         self.x = msg.x
         self.y = msg.y
@@ -133,17 +142,23 @@ class line_follower:
             img_gray = cv2.cvtColor(imagen_resize,cv2.COLOR_BGR2GRAY)
             img_gaus = cv2.GaussianBlur(img_gray,(3,3),cv2.BORDER_DEFAULT)
             if self.ignorarTimer < 35:
-                imagen_recortada = img_gaus[int(img_gaus.shape[0]/3*2):int(img_gaus.shape[0])-1,int(img_gaus.shape[1]/5):int(img_gaus.shape[1])-1]
+                imagen_recortada = img_gaus[int(img_gaus.shape[0]/3*2):int(img_gaus.shape[0])-1,int(img_gaus.shape[1]*4/5):int(img_gaus.shape[1])-1]
                 self.ignorarTimer +=1
+                self.max_v = 0.0001
             else:
-                imagen_recortada = img_gaus[int(img_gaus.shape[0]/3*2):int(img_gaus.shape[0])-1,int(img_gaus.shape[1]/5):int(img_gaus.shape[1]/5*4)-1]
+                if self.enRecta:
+                    imagen_recortada = img_gaus[int(img_gaus.shape[0]/3*2):int(img_gaus.shape[0])-1,int(img_gaus.shape[1]*4/20):int(img_gaus.shape[1]*16/20)-1]
+                else:
+                    imagen_recortada = img_gaus[int(img_gaus.shape[0]/3*2):int(img_gaus.shape[0])-1,int(img_gaus.shape[1]*7/20):int(img_gaus.shape[1]*13/20)-1]
+                self.enRecta = False
+                self.max_v = 0.5
             #img_bordes = cv2.Canny(imagen_recortada, 100, 170, apertureSize = 3)
             img_bordes = cv2.Canny(imagen_recortada, 10, 100, apertureSize = 3)
             k = np.ones((3,3),np.uint8)
             #img_bordes = cv2.dilate(img_bordes,k,iterations = 1)
             negro = np.zeros(img_bordes.shape,np.uint8)
             negro = imagen_recortada
-            
+            #_,negro = cv2.threshold(negro,70,255,cv2.THRESH_BINARY_INV)
             #lines = cv2.HoughLines(img_bordes, 1.2, np.pi / 180, 30,0,0)
             #try:
                 #lines = cv2.HoughLines(img_bordes, 1.2, np.pi / 180, 30,0,0)
@@ -185,7 +200,7 @@ class line_follower:
                     sigma = np.std(centros)
                     #negro = thresh
                     print("std_dev",sigma,"buenos",valCont)
-                    if sigma < 10 and valCont > 3:
+                    if sigma < 10 and valCont > 2:
                         self.estancado = True
                         enPasoZebra = True
                         vel = 0
@@ -205,7 +220,7 @@ class line_follower:
                         #print(x1,y1,x2,y2)
                         #cv2.line(negro,(x1,y1),(x2,y2),(255,255,255),1)
                 if not enPasoZebra:
-                    idx = tamano.index(min(tamano))
+                    idx = tamano.index(max(tamano))
                     x1,y1,x2,y2 = lines[0][idx]
                     cv2.line(negro,(x1,y1),(x2,y2),(255,255,255),1)
                     print("bordes",img_bordes.shape)
@@ -213,6 +228,8 @@ class line_follower:
                     pendiente = 0
                     if x1 != x2:
                         pendiente = (float(y1)-float(y2))/(float(x1)-float(x2))
+                    else:
+                        pendiente = (float(y1)-float(y2))/0.001
                     #cv2.putText(negro,str(pendiente),(50,20),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),1)
                     print("linea",(x1,y1),(x2,y2))
                     distancias = [self.getDistance(x1,y1,puntoMedio[0],puntoMedio[1]),self.getDistance(x2,y2,puntoMedio[0],puntoMedio[1])]
@@ -228,24 +245,29 @@ class line_follower:
                     
                     print("pObj",puntoObjetivo)
                     dtheta = np.arctan2(puntoObjetivo[1]-puntoMedio[1],puntoObjetivo[0]-puntoMedio[0]) + np.pi/2
-                    if pendiente > 0:
-                        #if puntoObjetivo[1] > puntoMedio[1]:
-                            #puntoObjetivo[1]-=puntoMedio[1]/2 
-                        #dtheta = -0.9/(pendiente)
-                        #dtheta *= 3
-                        print("Negativa")
-                        print("Puntomedio y distancias",puntoMedio,distancias)
+                    if abs(pendiente) < 100:
+                        self.enRecta = True
+                    else:
+                        self.enRecta = False
+                    #cv2.putText(negro,str(round(pendiente,3)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                    if abs(puntoMedio[0]-puntoObjetivo[0]) < 20:
+                        dtheta = 0
                     cv2.circle(negro,(puntoObjetivo[0],puntoObjetivo[1]),2,(255,255,255),1)
                     cv2.circle(negro,(puntoMedio[0],puntoMedio[1]),2,(255,255,255),1)
                     cv2.line(negro,(puntoObjetivo[0],puntoObjetivo[1]),(puntoMedio[0],puntoMedio[1]),(255,255,255),2)
                     print("dt",dtheta)
-                    #cv2.putText(negro,str(dtheta),(50,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),1)
+                    
                     prom = self.getPromDist(max(distancias))
                     print("prom",prom, max(distancias))
                     if max(distancias) > 1.5*prom:
-                        dtheta = -0.1*np.sign(pendiente)
+                        #dtheta = -0.1*np.sign(pendiente)
                         print("lol")
-                
+                if self.rd > 0.15:
+                    self.estancado = True
+                if self.gd > 0.15:
+                    self.estancado = False
+                cv2.putText(negro,str(round(self.rd,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                cv2.putText(negro,str(round(self.gd,2)),(30,45),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
                 if self.y < 0.15:
                     imgSemf = img_gray[int(img_gray.shape[0]/12):int(img_gray.shape[0]/3),0:int(img_gray.shape[1]*3/10)]
                     print("Sem1")
@@ -309,10 +331,11 @@ class line_follower:
                     msg.linear.z = 0
                     msg.angular.x = 0
                     msg.angular.y = 0
-                    msg.angular.z = -dtheta * 0.1
+                    msg.angular.z = -dtheta * 0.12
+                    cv2.putText(negro,str(round(msg.angular.z,3)),(30,20),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
                     #publicar
-                    if msg.angular.z > self.max_v:
-                        msg.angular.z = self.max_v
+                    if abs(msg.angular.z) > self.max_v:
+                        msg.angular.z = self.max_v * np.sign(msg.angular.z)
                     self.twist_publisher.publish(msg)
 
             

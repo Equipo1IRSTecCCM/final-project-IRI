@@ -5,8 +5,8 @@
 	<node name="odom_node" pkg="odom_calc" type="odom_calc.py"/>
 	<node name="iris" pkg="color_identification" type="colorator.py"/>
 	<arg name="node_start_delay" default="1.0"/>
-	<node name="follower" pkg="line_detection" type="lineador3.py" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@'"/>
-	<node name="sem_detect" pkg="semaforo_detector" type="semaforo2.py"/>
-	<node name="zebra_detect" pkg="zebra_detector" type="pasozebra2.py"/>
+	<node name="follower" pkg="line_detection" type="lineador.py" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@'"/>
+	<node name="sem_detect" pkg="semaforo_detector" type="semaforo.py"/>
+	<node name="zebra_detect" pkg="zebra_detector" type="pasozebra.py"/>
 	<node name="pilot" pkg="piloto" type="dom.py"/>
 </launch>

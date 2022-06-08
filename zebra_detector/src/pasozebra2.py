@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-#<node name="paso_zebra" pkg="zebra" type="pasozebra.py"/>
-from turtle import pen
 import cv2
 import numpy as np
 import rospy
@@ -17,12 +15,13 @@ class paso_zebra:
         self.w = 0
         self.h = 0
         self.bridge = CvBridge()
+        self.dt = 0.1
         
         rospy.init_node("paso_zebra")
 
         rospy.Subscriber('/video_source/raw',Image,self.source_callback)
 
-        self.datazebra = rospy.Publisher('/zebra',UInt8, queue_size=10)
+        self.datazebra = rospy.Publisher('/img_processing/zebra',UInt8, queue_size=10)
         self.debug_msg = rospy.Publisher('/ojosZebra',Image,queue_size=10)
         self.t1 = rospy.Timer(rospy.Duration(self.dt),self.timer_callback)
         self.rate = rospy.Rate(10)
@@ -64,8 +63,9 @@ class paso_zebra:
                 continuar = True
             except:
                 print("No lineas")
+            enPasoZebra = False
             if continuar:
-                enPasoZebra = False
+                
                 if len(lines) > 20:
                     ret,thresh = cv2.threshold(imagen_recortada,70,255,cv2.THRESH_BINARY_INV)
                     #thresh = cv2.dilate(thresh,np.ones((2,2),np.uint8),iterations=1)
@@ -82,14 +82,15 @@ class paso_zebra:
                     sigma = np.std(centros)
                     #negro = thresh
                     print("std_dev",sigma,"buenos",valCont)
-                    if sigma < 10 and valCont > 2:
+                    if sigma < 10 and valCont > 4:
                         enPasoZebra = True
             
-            cv2.putText(negro,"x:" + str(round(self.x,1)) + " y:"+str(round(self.y,1)),(50,50),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+            #cv2.putText(negro,"x:" + str(round(self.x,1)) + " y:"+str(round(self.y,1)),(50,50),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+            
             msg_img = Image()
             msg_img = self.bridge.cv2_to_imgmsg(negro)
             self.debug_msg.publish(msg_img)       
-
+        
             if enPasoZebra:
                 self.datazebra.publish(1)
             else:

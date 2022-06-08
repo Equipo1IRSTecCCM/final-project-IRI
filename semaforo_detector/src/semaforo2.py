@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-#<node name="semaforo_gyr" pkg="semaforoChido" type="semaforo.py"/>
-from turtle import pen
 import cv2
 import numpy as np
 import rospy
@@ -36,9 +34,10 @@ class semaforo_gyr:
         rospy.Subscriber('/video_source/raw',Image,self.source_callback)
         rospy.Subscriber('/img_properties/green/density',Float32,self.g_callback)
         rospy.Subscriber('/img_properties/red/density',Float32,self.r_callback)
+        
         rospy.Subscriber('/odom', Pose2D, self.odom_callback)
         self.twist_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-        self.datasemaforo = rospy.Publisher('/sem_Data',UInt8, queue_size=10)
+        self.datasemaforo = rospy.Publisher('/img_processing/sem_Data',UInt8, queue_size=10)
         self.semf_msg = rospy.Publisher('/semforo',Image,queue_size=10)
         self.t1 = rospy.Timer(rospy.Duration(self.dt),self.timer_callback)
         self.rate = rospy.Rate(10)
@@ -103,54 +102,24 @@ class semaforo_gyr:
             pass
         if continuar:
             img_gray = cv2.cvtColor(imagen_resize,cv2.COLOR_BGR2GRAY)
-            img_gaus = cv2.GaussianBlur(img_gray,(3,3),cv2.BORDER_DEFAULT)
-            if self.ignorarTimer < 35:
-                imagen_recortada = img_gaus[int(img_gaus.shape[0]/3*2):int(img_gaus.shape[0])-1,int(img_gaus.shape[1]*4/5):int(img_gaus.shape[1])-1]
-                self.ignorarTimer +=1
 
-            img_bordes = cv2.Canny(imagen_recortada, 10, 100, apertureSize = 3)
-            k = np.ones((3,3),np.uint8)
-
-            negro = np.zeros(img_bordes.shape,np.uint8)
-            negro = imagen_recortada
-            lines = cv2.HoughLinesP(img_bordes,0.1,np.pi/180*1.5,3,100,3)
-        
-
-            tamano = []
-            continuar = False
-            try:
-                for x1,y1,x2,y2 in lines[0]:
-                    tamano.append(np.sqrt((x1-x2)**2+(y1-y2)**2))
-                tamano.sort()
-                continuar = True
-            except:
-                print("No lineas")
-            if continuar:
-                '''
-                if self.rd > 0.15:
-                    self.estancado = True
-                if self.gd > 0.15:
-                    self.estancado = False
-                '''
-                cv2.putText(negro,str(round(self.rd,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-                cv2.putText(negro,str(round(self.gd,2)),(30,45),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-                if self.y < 0.15:
-                    imgSemf = img_gray[int(img_gray.shape[0]/12):int(img_gray.shape[0]/3),0:int(img_gray.shape[1]*3/10)]
-                    print("Sem1")
-                else:
-                    imgSemf = img_gray[int(img_gray.shape[0]/14):int(img_gray.shape[0]*3/12),int(img_gray.shape[1]*3/10):int(img_gray.shape[1]*6/10)]
-                    print("Sem2")
-                if self.estancado:
-                    imgSemf,color = self.getColour(imgSemf,imagen_resize)
-                    print("Est")
-                msg_img = self.bridge.cv2_to_imgmsg(imgSemf)
-                self.semf_msg.publish(msg_img)
-                self.datasemaforo.publish(color)
+            cv2.putText(negro,str(round(self.rd,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+            cv2.putText(negro,str(round(self.gd,2)),(30,45),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+            if self.y < 0.15:
+                imgSemf = img_gray[int(img_gray.shape[0]/12):int(img_gray.shape[0]/3),0:int(img_gray.shape[1]*3/10)]
+                print("Sem1")
+            else:
+                imgSemf = img_gray[int(img_gray.shape[0]/14):int(img_gray.shape[0]*3/12),int(img_gray.shape[1]*3/10):int(img_gray.shape[1]*6/10)]
+                print("Sem2")
+            
+            imgSemf,color = self.getColour(imgSemf,imagen_resize)
+            print("Est")
+            msg_img = self.bridge.cv2_to_imgmsg(imgSemf)
+            self.semf_msg.publish(msg_img)
+            self.datasemaforo.publish(color)
                     
             cv2.putText(negro,"x:" + str(round(self.x,1)) + " y:"+str(round(self.y,1)),(50,50),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-            msg_img = Image()
-            msg_img = self.bridge.cv2_to_imgmsg(negro)
-            self.debug_msg.publish(msg_img)
+            
 
             
             
@@ -171,8 +140,10 @@ class semaforo_gyr:
                 xr,yr,wr,hr = cv2.boundingRect(c)
                 rect.append({'x':xr,'y':yr,'w':wr,'h':hr})
                 cv2.rectangle(imgSemf,(xr,yr),(xr+wr,yr+hr),(255,255,255),1)
+        color = 4
         if len(rect) == 1:
             print("Solo blob",rect)
+            
             if rect[0]['y'] < imgSemf.shape[0]/2:
                 color = 2
                 #self.sem_verde = True
@@ -182,44 +153,6 @@ class semaforo_gyr:
                 color = 0
                 print("Rojo",rect[0])
                 cv2.putText(imgSemf,"Rojo"+str(rect[0]['y']),(20,10),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-        '''
-        #msk_r = cv2.resize(self.msk_r,None,fx=0.3,fy=0.3)
-        #msk_g = cv2.resize(self.msk_g,None,fx=0.3,fy=0.3)
-        #msk_y = cv2.resize(self.msk_y,None,fx=0.3,fy=0.3)
-        for r in rect:
-            densities = []
-        
-            #msk_img = msk_r[r['x']:r['x']+r['w'],r['y']:r['y']+r['h']]
-            #densities.append(self.getDensitySmall(msk_img))
-            #msk_img = msk_g[r['x']:r['x']+r['w'],r['y']:r['y']+r['h']]
-            #densities.append(self.getDensitySmall(msk_img))
-            #msk_img = msk_y[r['x']:r['x']+r['w'],r['y']:r['y']+r['h']]
-            #densities.append(self.getDensitySmall(msk_img))
-            #img = imagen_resize[r['x']:r['x']+r['w'],r['y']:r['y']+r['h']]
-            #densities = [self.getDensity('r',img),self.getDensity('g',img),self.getDensity('y',img)]
-            print(r,densities)
-            
-            
-            maximos.append([densities.index(max(densities)),max(densities)])
-            cv2.putText(imgSemf,str(round(densities[0],3)),(r['x'],r['y']),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-            cv2.putText(imgSemf,str(round(densities[1],3)),(r['x'],r['y']+8),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-            cv2.putText(imgSemf,str(round(densities[2],3)),(r['x'],r['y']+16),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-        
-        
-        maxi = 0
-        idx_max = 1
-        for index,den in maximos:
-            if den > maxi:
-                maxi = den
-                idx_max = index
-        if idx_max == 0:
-            colour = "rojo"
-        elif idx_max == 1:
-            colour = "verde"
-        else:
-            colour = "amarillo"
-        cv2.putText(imgSemf,colour,(50,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),1)
-        '''
         return imgSemf,color
     def getDensitySmall(self,img):
         return 1 - np.sum(img) / (img.shape[0] * img.shape[1]) / 255

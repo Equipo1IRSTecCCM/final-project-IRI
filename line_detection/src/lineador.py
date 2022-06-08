@@ -18,7 +18,7 @@ class line_follower:
     def __init__(self):
         self.img = np.array([])
         self.ignorarTimer = 38
-        self.bridge = CvBridge()
+        #self.bridge = CvBridge()
         self.dt = 0.1
         self.max_v = 0.3
         self.estancado = False
@@ -30,7 +30,7 @@ class line_follower:
         self.antDist = []
         self.doing_pp = False
         self.sem_verde = False
-        self.max_w = 0.15
+        self.max_w = 0.5
         self.enRecta = False
         self.gd = 0
         self.rd = 0
@@ -93,7 +93,7 @@ class line_follower:
         return skel
     def timer_callback(self,time):
         omega = 0
-        vel = 0.1
+        v = 0
         negro = np.zeros((5,5),np.uint8)
         continuar = False
         try:
@@ -105,13 +105,12 @@ class line_follower:
         if continuar:
             img = cv2.cvtColor(imagen_resize,cv2.COLOR_BGR2GRAY)
             img_gaus = cv2.GaussianBlur(img,(3,3),cv2.BORDER_DEFAULT)
-            img_gaus = cv2.GaussianBlur(img_gaus,(3,3),cv2.BORDER_DEFAULT)
-            img = img_gaus[int(img_gaus.shape[0]*5/6):int(img_gaus.shape[0])-1,int(img_gaus.shape[1]*7/20):int(img_gaus.shape[1]*13/20)-1]
+            img = img_gaus[int(img_gaus.shape[0]/3*2):int(img_gaus.shape[0])-1,int(img_gaus.shape[1]*7/20):int(img_gaus.shape[1]*13/20)-1]
             _,img = cv2.threshold(img, 70, 255, cv2.THRESH_BINARY_INV)
 
             skel = self.skeletonize(img)
             lines = cv2.HoughLinesP(skel,0.1,np.pi/180*1.5,3,minLineLength=5,maxLineGap=100)
-            negro = np.zeros(skel.shape,np.uint8)
+        
             tamano = []
             continuar = False
             try:
@@ -126,8 +125,7 @@ class line_follower:
                 if not enPasoZebra:
                     idx = tamano.index(max(tamano))
                     x1,y1,x2,y2 = lines[0][idx]
-                    cv2.line(skel,(x1,y1),(x2,y2),(255,255,255),1)
-                    '''
+                    cv2.line(negro,(x1,y1),(x2,y2),(255,255,255),1)
                     print("bordes",skel.shape)
                     puntoMedio = [int(negro.shape[1]/2),int(negro.shape[0]-3)]
                     pendiente = 0
@@ -135,7 +133,7 @@ class line_follower:
                         pendiente = (float(y1)-float(y2))/(float(x1)-float(x2))
                     else:
                         pendiente = (float(y1)-float(y2))/0.001
-                    cv2.putText(skel,str(round(pendiente,2)),(30,20),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                    #cv2.putText(negro,str(pendiente),(50,20),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),1)
                     print("linea",(x1,y1),(x2,y2))
                     distancias = [self.getDistance(x1,y1,puntoMedio[0],puntoMedio[1]),self.getDistance(x2,y2,puntoMedio[0],puntoMedio[1])]
                 
@@ -144,59 +142,62 @@ class line_follower:
                         puntoObjetivo = [x1,y1]
                     else:
                         puntoObjetivo = [x2,y2]
-                    print("pObj",puntoObjetivo)
-                    dtheta = self.getAngle(puntoObjetivo[0],puntoObjetivo[1],puntoMedio[0],puntoMedio[1]) + np.pi/2
-                    if puntoObjetivo[0] != puntoMedio[0]:
-                        pen = (float(puntoObjetivo[1])-float(puntoMedio[1]))/(float(puntoObjetivo[0])-float(puntoMedio[0]))
-                    else:
-                        pen = (float(puntoObjetivo[1])-float(puntoMedio[1]))/0.001
-                    #if pen != 0:
-                        #dtheta = 0.8/pen
-                    dtheta = -dtheta
-                    #cv2.putText(negro,str(round(pendiente,3)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+
+
                     
+                    
+                    print("pObj",puntoObjetivo)
+                    dtheta = np.arctan2(puntoObjetivo[1]-puntoMedio[1],puntoObjetivo[0]-puntoMedio[0]) + np.pi/2
+                    if abs(pendiente) < 100:
+                        self.enRecta = True
+                    else:
+                        self.enRecta = False
+                    #cv2.putText(negro,str(round(pendiente,3)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                    if abs(puntoMedio[0]-puntoObjetivo[0]) < 20:
+                        dtheta = 0
                     cv2.circle(negro,(puntoObjetivo[0],puntoObjetivo[1]),2,(255,255,255),1)
                     cv2.circle(negro,(puntoMedio[0],puntoMedio[1]),2,(255,255,255),1)
                     cv2.line(negro,(puntoObjetivo[0],puntoObjetivo[1]),(puntoMedio[0],puntoMedio[1]),(255,255,255),2)
                     print("dt",dtheta)
-                    '''
-                    puntoMedio = [int(negro.shape[1]/2),int(negro.shape[0]-3)]
-                    distancias = [self.getDistance(x1,y1,puntoMedio[0],puntoMedio[1]),self.getDistance(x2,y2,puntoMedio[0],puntoMedio[1])]
-                
-                    print("Puntomedio y distancias",puntoMedio,distancias)
-                    if distancias[0] > distancias[1]:
-                        puntoObjetivo = [x1,y1]
-                    else:
-                        puntoObjetivo = [x2,y2]
-                    d = float(puntoMedio[0]) - float(puntoObjetivo[0])
-                    d /= float(puntoMedio[0])
-                    print("Drol",d)
-                    dtheta = d * self.max_w
-                
+                    
+                    prom = self.getPromDist(max(distancias))
+                    print("prom",prom, max(distancias))
+                    if max(distancias) > 1.5*prom:
+                        #dtheta = -0.1*np.sign(pendiente)
+                        print("lol")
+                if self.rd > 0.15:
+                    self.estancado = True
+                if self.gd > 0.15:
+                    self.estancado = False
                 cv2.putText(negro,str(round(self.rd,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
                 cv2.putText(negro,str(round(self.gd,2)),(30,45),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
 
-
+                if self.estancado:
+                    print("Estancado")
                 
+                    self.estancado = True
+                    vel = 0
+                    dtheta = 0
+                    print("todo bien ajua")
                 
-                msg = Twist()
-                msg.linear.x = vel
-                msg.linear.y = 0
-                msg.linear.z = 0
-                msg.angular.x = 0
-                msg.angular.y = 0
-                msg.angular.z = dtheta
-                if abs(msg.angular.z) > self.max_w:
-                    msg.angular.z = self.max_w * np.sign(msg.angular.z)
-                cv2.putText(skel,str(round(dtheta,3)),(30,40),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-                #publicar
-                
-                self.twist_publisher.publish(msg)
+                if not self.doing_pp:
+                    msg = Twist()
+                    msg.linear.x = vel
+                    msg.linear.y = 0
+                    msg.linear.z = 0
+                    msg.angular.x = 0
+                    msg.angular.y = 0
+                    msg.angular.z = -dtheta * 0.12
+                    cv2.putText(negro,str(round(msg.angular.z,3)),(30,20),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                    #publicar
+                    if abs(msg.angular.z) > self.max_v:
+                        msg.angular.z = self.max_v * np.sign(msg.angular.z)
+                    self.twist_publisher.publish(msg)
 
             
             cv2.putText(negro,"x:" + str(round(self.x,1)) + " y:"+str(round(self.y,1)),(50,50),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
             msg_img = Image()
-            msg_img = self.bridge.cv2_to_imgmsg(skel)
+            msg_img = self.bridge.cv2_to_imgmsg(negro)
             self.debug_msg.publish(msg_img)
 
     def getDensitySmall(self,img):

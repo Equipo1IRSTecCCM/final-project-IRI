@@ -61,13 +61,9 @@ class semaforo_gyr:
     def getDensity(self,color,img):
         imgHsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
         if color == 'r':
-            red_min = np.array([0,100,20],np.uint8)
-            red_max = np.array([10,255,255],np.uint8)
-            mask1 = cv2.inRange(imgHsv,red_min,red_max)
-            red_min = np.array([160,100,20],np.uint8)
+            red_min = np.array([160,150,20],np.uint8)
             red_max = np.array([179,255,255],np.uint8)
-            mask2 = cv2.inRange(imgHsv,red_min,red_max)
-            mask = mask1 + mask2
+            mask = cv2.inRange(imgHsv,red_min,red_max)
         elif color == 'g':
             green_min = np.array([50,50,50],np.uint8)
             green_max = np.array([90,200,255],np.uint8)
@@ -88,7 +84,7 @@ class semaforo_gyr:
         img_dilate = cv2.dilate(img_erosion,kernel,iterations=3)
         
         #Densidad
-        desnsity = 1 - np.sum(img_dilate) / (img_dilate.shape[0] * img_dilate.shape[1]) / 255
+        desnsity = 1.0 - np.sum(img_dilate) / float(img_dilate.shape[0] * img_dilate.shape[1]) / 255.0
         return desnsity
 
     def timer_callback(self,time):
@@ -106,10 +102,10 @@ class semaforo_gyr:
             cv2.putText(negro,str(round(self.rd,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
             cv2.putText(negro,str(round(self.gd,2)),(30,45),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
             if self.y < 0.15:
-                imgSemf = img_gray[int(img_gray.shape[0]/12):int(img_gray.shape[0]/3),0:int(img_gray.shape[1]*3/10)]
+                imgSemf = imagen_resize[int(imagen_resize.shape[0]/12):int(imagen_resize.shape[0]/3),0:int(imagen_resize.shape[1]*3/10)]
                 print("Sem1")
             else:
-                imgSemf = img_gray[int(img_gray.shape[0]/14):int(img_gray.shape[0]*3/12),int(img_gray.shape[1]*3/10):int(img_gray.shape[1]*6/10)]
+                imgSemf = imagen_resize[int(imagen_resize.shape[0]/14):int(imagen_resize.shape[0]*3/12),int(imagen_resize.shape[1]*3/10):int(imagen_resize.shape[1]*6/10)]
                 print("Sem2")
             
             imgSemf,color = self.getColour(imgSemf,imagen_resize)
@@ -126,34 +122,37 @@ class semaforo_gyr:
         
 
     def getColour(self,imgSemf,imagen_resize):
-        kernel = np.ones(imgSemf.shape,np.uint8)
-        imgSemf = cv2.multiply(imgSemf,kernel)
+        imgSef_gray = cv2.cvtColor(imgSemf,cv2.COLOR_BGR2GRAY)
         k = np.ones((5,5),np.uint8)
-        ret,thresh = cv2.threshold(imgSemf,180,255,cv2.THRESH_BINARY)
+        ret,thresh = cv2.threshold(imgSef_gray,180,255,cv2.THRESH_BINARY)
         thresh = cv2.dilate(thresh,k,iterations=2)
         #thresh = cv2.dilate(thresh,np.ones((2,2),np.uint8),iterations=1)
         contours, hirechary = cv2.findContours(thresh,cv2.RETR_LIST,cv2.CHAIN_APPROX_NONE)
         rect = []
-    
+        #print(imgSemf)
         for c in contours:
             if len(c) > 2:
                 xr,yr,wr,hr = cv2.boundingRect(c)
-                rect.append({'x':xr,'y':yr,'w':wr,'h':hr})
-                cv2.rectangle(imgSemf,(xr,yr),(xr+wr,yr+hr),(255,255,255),1)
+                cv2.rectangle(imgSef_gray,(xr,yr),(xr+wr,yr+hr),(255,255,255),1)
+                img_rect = imgSemf[yr:yr+wr,xr:xr+hr,:]
+                print(len(imgSemf))
+                print(img_rect)
+                densities = [self.getDensity('r',img_rect),self.getDensity('y',img_rect),self.getDensity('g',img_rect)]
+                rect.append({'x':xr,'y':yr,'w':wr,'h':hr,'md':densities.index(max(densities)),'d':max(densities)})
         color = 4
         if len(rect) == 1:
             print("Solo blob",rect)
             
-            if rect[0]['y'] < imgSemf.shape[0]/2:
+            if rect[0]['y'] < imgSemf.shape[0]/2 and rect[0]['md'] == 2:
                 color = 2
                 #self.sem_verde = True
                 print("Verde",rect[0])
-                cv2.putText(imgSemf,"Verde"+str(rect[0]['y']),(20,10),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                cv2.putText(imgSef_gray,"Verde"+str(round(rect[0]['d'],2)),(20,10),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
             else:
                 color = 0
                 print("Rojo",rect[0])
-                cv2.putText(imgSemf,"Rojo"+str(rect[0]['y']),(20,10),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-        return imgSemf,color
+                cv2.putText(imgSef_gray,"Rojo"+str(rect[0]['y']),(20,10),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+        return imgSef_gray,color
     def getDensitySmall(self,img):
         return 1 - np.sum(img) / (img.shape[0] * img.shape[1]) / 255
     def stop(self):

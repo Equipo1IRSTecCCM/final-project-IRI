@@ -15,26 +15,30 @@ cropped_img_t = [cv2.imread(file) for file in glob.glob("Traffic_Signs0*.png")]
 cropped_img = []
 names = ['stop','continue','round','right','no limit']
 idx = 0
-for im in cropped_img_t:
-    cropped_img.append(cv2.cvtColor(cv2.pyrDown(cv2.pyrDown(im)),cv2.COLOR_BGR2GRAY))
-    #cv2.imshow(names[idx],cropped_img[-1])
-    idx += 1
+for i in range (2):
+    for im in cropped_img_t:
+        cropped_img.append(cv2.cvtColor(cv2.pyrDown(cv2.pyrDown(im)),cv2.COLOR_BGR2GRAY))
+        #cv2.imshow(names[idx],cropped_img[-1])
+        idx += 1
     #cv2.waitKey(0)
 #Create a list with the different names of each image
 
 #Create an Orb detector with 1000 key-points and a scaling pyramid factor of 1.2
-orb = cv2.SIFT_create() #cv2.ORB_create(1000, 1.2)
+#orb = cv2.SIFT_create() 
+orb = cv2.ORB_create(1000, 1.2)
 #Create a matcher with Hamming norm and crossCheck equal true
-#bf = cv2.BFMatcher_create(cv2.NORM_HAMMING, crossCheck=True)
-bf = cv2.BFMatcher()
+#bf = cv2.BFMatcher_create(cv2.NORM_HAMMING, crossCheck=False)
+bf = cv2.FlannBasedMatcher(dict(algorithm = 0, trees = 3), dict(checks = 100))
+#bf = cv2.BFMatcher()
 #matcher = cv2.DescriptorMatcher_create(cv2.DescriptorMatcher_BRUTEFORCE_HAMMING)
 #For all images detect all the key points and descriptors using an orb and append the descriptors to a list
 descriptors = []
 keypoints = []
 for im in cropped_img:
-    kp, des = orb.detectAndCompute(im, None)
-    descriptors.append(des)
+    kp, desn = orb.detectAndCompute(im, None)
+    descriptors.append(desn)
     keypoints.append(kp)
+desn= np.float32(desn)
 #Open an infinite video stream
 cap= cv2.VideoCapture(0)
 #Use an infinite loop that would stop with an enter key
@@ -50,9 +54,9 @@ while True:
     #Compare the detectors from the captured frame with the detectors from the image
     matches = []
     num_mat = []
-    
-    for desn in descriptors:
-        mat = bf.knnMatch(desn, des,k=2)
+    des= np.float32(des)
+    for j in descriptors:
+        mat = bf.knnMatch(desn[j], des,k=2)
         good_matches = []
 
         for m1, m2 in mat:

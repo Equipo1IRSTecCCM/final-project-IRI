@@ -23,9 +23,9 @@ class purePursuit:
         
         rospy.init_node('pure_pursuit')
         rospy.Subscriber('/odom', Pose2D, self.odom_callback) 
-        #rospy.Subscriber('/pp/points', Float32MultiArray, self.points_callback)
+        rospy.Subscriber('/pp/points', Float32MultiArray, self.points_callback)
         rospy.Subscriber('/pp/init', UInt8, self.points_callback)
-        self.twist_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        self.twist_publisher = rospy.Publisher('/pp/cmd_vel', Twist, queue_size=10)
         self.finish_publisher = rospy.Publisher('/pp/finish', UInt8, queue_size=10)
         self.t1 = rospy.Timer(rospy.Duration(self.dt),self.timer_callback)
         #Definir el rate de rospy
@@ -36,8 +36,8 @@ class purePursuit:
         self.initPos = [0, 0]
         self.distance_threshold = 0.1
         self.goal = [0,0]
-        self.wpx = []
-        self.wpy = []
+        self.wpx = [10]
+        self.wpy = [10]
         self.steps = 20
 
         self.wpCercano = 0
@@ -54,19 +54,44 @@ class purePursuit:
         self.velAuto = [0,0]
         self.wpLocal = []
     def points_callback(self,msg):
-        '''
+        
         temp = msg.data
+        step_distance = 0.1
+        delta = [self.x-temp[0],self.y-self.temp[1]]
+        steps = [int(math.ceil(delta[0]/step_distance)),int(math.ceil(delta[1]/step_distance))]
+        temp_x = np.zeros(sum(steps)-2)
+        temp_y = np.zeros(sum(steps)-2)
+        linea_x = np.array(np.linspace(self.x,self.x,steps[1]))
+        linea_y = np.array(np.linspace(self.y,temp[1],steps[1]))
+        linea_x = np.delete(linea_x,0,0)
+        linea_y = np.delete(linea_y,0,0)
+        linea_x = np.delete(linea_x,len(linea_x)-1,0)
+        linea_y = np.delete(linea_y,len(linea_y)-1,0)
+        idx_arr = 0
+        for idx in range(len(linea_x)):
+            temp_x[idx] = linea_x[idx]
+            temp_y[idx] = linea_y[idx]
+            idx_arr += 1
+        linea_x = np.array(np.linspace(self.x,temp[0],steps[0]))
+        linea_y = np.array(np.linspace(temp[1],temp[1],steps[0]))
+        linea_x = np.delete(linea_x,0,0)
+        linea_y = np.delete(linea_y,0,0)
+        linea_x = np.delete(linea_x,len(linea_x)-1,0)
+        linea_y = np.delete(linea_y,len(linea_y)-1,0)
+        for idx in range(len(linea_x)):
+            temp_x[idx_arr] = linea_x[idx]
+            temp_y[idx_arr] = linea_y[idx]
+            idx_arr += 1
         self.wpx = []
         self.wpy = []
-        list_select = True
-        for px in temp:
-            if list_select:
-                self.wpx.append(px)
-            else:
-                self.wpy.append(px)
-            list_select = not list_select
+        temp_x = np.transpose(temp_x).tolist()
+        temp_y = np.transpose(temp_y).tolist()
+        for i in range(len(temp_x)):
+            self.wpx.append(temp_x[i])
+            self.wpy.append(temp_y[i])
+        
         print("pp invocado",temp)
-        '''
+        
         self.manejar = not self.manejar
 
     def timer_callback(self,time):

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import cv2
 import numpy as np
 
@@ -106,10 +105,12 @@ class line_follower:
             img = cv2.cvtColor(imagen_resize,cv2.COLOR_BGR2GRAY)
             img_gaus = cv2.GaussianBlur(img,(3,3),cv2.BORDER_DEFAULT)
             img_gaus = cv2.GaussianBlur(img_gaus,(3,3),cv2.BORDER_DEFAULT)
+            img_gaus = cv2.GaussianBlur(img_gaus,(3,3),cv2.BORDER_DEFAULT)
             img = img_gaus[int(img_gaus.shape[0]*5/6):int(img_gaus.shape[0])-1,int(img_gaus.shape[1]*7/20):int(img_gaus.shape[1]*13/20)-1]
             _,img = cv2.threshold(img, 70, 255, cv2.THRESH_BINARY_INV)
 
-            skel = self.skeletonize(img)
+            #skel = self.skeletonize(img)
+            skel = cv2.Canny(img, 10, 100, apertureSize = 3)
             lines = cv2.HoughLinesP(skel,0.1,np.pi/180*1.5,3,minLineLength=5,maxLineGap=100)
             negro = np.zeros(skel.shape,np.uint8)
             tamano = []
@@ -169,12 +170,21 @@ class line_follower:
                     else:
                         puntoObjetivo = [x2,y2]
                     d = float(puntoMedio[0]) - float(puntoObjetivo[0])
+                    cv2.putText(skel,str(d),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                    if abs(d) < 35:
+                        self.max_w = 0.05
+                    else:
+                        self.max_w = 0.1
                     d /= float(puntoMedio[0])
+                    p = 10000
+                    if x1!=x2:
+                        p = float(y1-y2)/float(x1-x2)
+                    cv2.putText(skel,str(round(p,2)),(30,15),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1) 
                     print("Drol",d)
                     dtheta = d * self.max_w
                 
-                cv2.putText(negro,str(round(self.rd,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-                cv2.putText(negro,str(round(self.gd,2)),(30,45),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                    
+                
 
 
                 

@@ -28,13 +28,15 @@ class semaforo_gyr:
         self.y = 0
         self.gd = 0
         self.rd = 0
-        
+        self.last_sent = 4
+        self.sem_idx = 0
         rospy.init_node("semaforo_gyr")
 
         rospy.Subscriber('/video_source/raw',Image,self.source_callback)
         rospy.Subscriber('/img_properties/green/density',Float32,self.g_callback)
         rospy.Subscriber('/img_properties/red/density',Float32,self.r_callback)
-        
+    
+        rospy.Subscriber('/img_processing/sem_toggle',UInt8, self.idx_callback)
         rospy.Subscriber('/odom', Pose2D, self.odom_callback)
         self.twist_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.datasemaforo = rospy.Publisher('/img_processing/sem_Data',UInt8, queue_size=10)
@@ -43,6 +45,8 @@ class semaforo_gyr:
         self.rate = rospy.Rate(10)
 
         rospy.on_shutdown(self.stop)
+    def idx_callback(self,msg):
+        self.sem_idx = 1
     def g_callback(self,msg):
         self.gd = msg.data
     def r_callback(self,msg):
@@ -101,7 +105,7 @@ class semaforo_gyr:
 
             cv2.putText(negro,str(round(self.rd,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
             cv2.putText(negro,str(round(self.gd,2)),(30,45),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-            if self.y < 0.15:
+            if self.sem_idx == 0:
                 imgSemf = imagen_resize[int(imagen_resize.shape[0]/12):int(imagen_resize.shape[0]/3),0:int(imagen_resize.shape[1]*3/10)]
                 print("Sem1")
             else:
@@ -112,8 +116,9 @@ class semaforo_gyr:
             print("Est")
             msg_img = self.bridge.cv2_to_imgmsg(imgSemf)
             self.semf_msg.publish(msg_img)
-            self.datasemaforo.publish(color)
-                    
+            if color != 4 and color != self.last_sent:
+                self.datasemaforo.publish(color)
+                self.last_sent = color
             cv2.putText(negro,"x:" + str(round(self.x,1)) + " y:"+str(round(self.y,1)),(50,50),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
             
 
@@ -129,6 +134,7 @@ class semaforo_gyr:
         #thresh = cv2.dilate(thresh,np.ones((2,2),np.uint8),iterations=1)
         contours, hirechary = cv2.findContours(thresh,cv2.RETR_LIST,cv2.CHAIN_APPROX_NONE)
         rect = []
+        size = []
         #print(imgSemf)
         for c in contours:
             if len(c) > 2:
@@ -139,11 +145,12 @@ class semaforo_gyr:
                 print(img_rect)
                 densities = [self.getDensity('r',img_rect),self.getDensity('y',img_rect),self.getDensity('g',img_rect)]
                 rect.append({'x':xr,'y':yr,'w':wr,'h':hr,'md':densities.index(max(densities)),'d':max(densities)})
+                size.append(wr*hr)
         color = 4
-        if len(rect) == 1:
+        if len(rect) > 0:
             print("Solo blob",rect)
-            
-            if rect[0]['y'] < imgSemf.shape[0]/2 and rect[0]['md'] == 2:
+            idx = size.index(max(size))
+            if rect[idx]['y'] < imgSemf.shape[0]/2 and rect[0]['md'] == 2:
                 color = 2
                 #self.sem_verde = True
                 print("Verde",rect[0])

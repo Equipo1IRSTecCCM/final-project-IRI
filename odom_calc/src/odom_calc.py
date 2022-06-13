@@ -3,7 +3,9 @@
 from cmath import cos
 import rospy
 from std_msgs.msg import Float32
+from std_msgs.msg import UInt8
 from geometry_msgs.msg import Pose2D
+from std_msgs.msg import Float32MultiArray
 import numpy as np
 
 class odometry:
@@ -15,7 +17,7 @@ class odometry:
         self.thetadot = 0.0
 
         self.x = 0.0
-        self.theta = 0
+        self.theta = 0.0
         #dimensiones robot
         self.r = 0.05
         self.l = 0.18
@@ -25,21 +27,44 @@ class odometry:
         self.theta = 0.0
 
         #timer
-        self.dt = 0.1 #s
+        self.dt = 0.02 #s
 
         #init rospy
         rospy.init_node('odometry')
 
         rospy.Subscriber('/wr', Float32, self.wr_callback)
         rospy.Subscriber('/wl', Float32, self.wl_callback)
+        rospy.Subscriber('/odom_reinit',UInt8,self.reinit_callback)
         self.odom_publisher = rospy.Publisher('/odom', Pose2D, queue_size=10)
+        self.odom_ready_publisher = rospy.Publisher('/odom_ready', UInt8, queue_size=10)
         #Crear timer
         self.t1 = rospy.Timer(rospy.Duration(self.dt),self.timer_callback)
         #Definir el rate de rospy
-        self.rate = rospy.Rate(10)
+        self.rate = rospy.Rate(50)
         #Indicar que hacer cuando se acabe
         rospy.on_shutdown(self.stop)
 
+    def reinit_callback(self,msg):
+        self.wr = 0.0
+        self.wl = 0.0
+        #derivadas
+        self.xdot = 0.0
+        self.thetadot = 0.0
+
+        self.x = 0.0
+        self.theta = 0.0
+        #dimensiones robot
+        self.r = 0.05
+        self.l = 0.18
+        #Variables goblales
+        self.global_X = 0.0
+        self.global_Y = 0.0
+        self.theta = 0.0
+
+        #timer
+        self.dt = 0.02 #s
+        msg = UInt8()
+        self.odom_ready_publisher.publish(msg)
     def timer_callback(self,time):
         self.xdot = self.r * (self.wr + self.wl) / 2.0
         self.thetadot = self.r * (self.wr - self.wl) / self.l

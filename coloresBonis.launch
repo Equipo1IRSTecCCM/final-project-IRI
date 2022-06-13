@@ -1,0 +1,7 @@
+<?xml version ="1.0" encoding="UTF-8"?>
+<launch>
+	<include file="$(find ros_deep_learning)/launch/video_source.ros1.launch"/>
+	<include file="$(find puzzlebot_autostart)/launch/puzzlebot_autostart.launch"/>
+	<node name="Bonis" pkg="coloresBonis" type="coloresBonis.py"/>
+	<arg name="node_start_delay" default="1.0"/>
+</launch>

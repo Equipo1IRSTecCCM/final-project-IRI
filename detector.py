@@ -1,9 +1,11 @@
 #!/usr/bin/env python 
  
 import rospy 
-from std_msgs.msg import String 
+from std_msgs.msg import String
+from std_msgs.msg import Float32
+from std_msgs.msg import UInt8 
 from sensor_msgs.msg import Image 
-from geometry_msgs.msg import Twist 
+#from geometry_msgs.msg import Twist 
 from cv_bridge import CvBridge 
 import numpy as np 
 import cv2 
@@ -40,6 +42,7 @@ class Signal_Detector:
         rospy.Subscriber('/video_source/raw', Image, self.img_callback) 
         rospy.Subscriber('/activator', String, self.activator_callback) 
         self.signal_pub = rospy.Publisher('/signal', String, queue_size=10) 
+        self.dataSenales = rospy.Publisher('/Senal',UInt8, queue_size=10)
         self.rate = rospy.Rate(1/self.dt) 
         self.timer = rospy.Timer(rospy.Duration(self.dt), self.timer_callback) 
         rospy.on_shutdown(self.stop) 
@@ -79,18 +82,24 @@ class Signal_Detector:
         self.slma = round(np.median(np.array(self.slml))) 
         # if self.slmp >= 2.0: 
             # Mandar signals[self.ila] 
-        if self.ila == "stop" and self.slmp >= 3.0: 
+        if self.ila == "stop" and self.slmp >= 3.0:                         # STOP ES = 0
             self.signal_pub.publish("stop, "+"slmp: "+str(self.slmp)) 
-        elif self.ila == "continue": 
+            self.dataSenales.publish(0) 
+        elif self.ila == "continue":                                        # CONTINUE ES = 1
             self.signal_pub.publish("continue, "+"slmp: "+str(self.slmp)) 
-        elif self.ila == "round": 
-            self.signal_pub.publish("round, "+"slmp: "+str(self.slmp)) 
-        elif self.ila == "turn": 
+            self.dataSenales.publish(1)
+        elif self.ila == "round":                                           # ROUND ES = 2
+            self.signal_pub.publish("round, "+"slmp: "+str(self.slmp))
+            self.dataSenales.publish(2) 
+        elif self.ila == "turn":                                            # TURN ES = 3
             self.signal_pub.publish("turn, "+"slmp: "+str(self.slmp)) 
-        elif self.ila == "no speed limit": 
-            self.signal_pub.publish("no speed limit, "+"slmp: "+str(self.slmp)) 
-        else: 
+            self.dataSenales.publish(3)
+        elif self.ila == "no speed limit":                                  # NO LIMIT ES = 4
+            self.signal_pub.publish("no speed limit, "+"slmp: "+str(self.slmp))
+            self.dataSenales.publish(4) 
+        else:                                                               # NO MATCHES ES = 5
             self.signal_pub.publish("No hay matches, "+"slmp: "+str(self.slmp)) 
+            self.dataSenales.publish(5)
         # else:         
         #     self.signal_pub.publish("No detecta nada, "+"slmp: "+str(self.slmp)) 
      

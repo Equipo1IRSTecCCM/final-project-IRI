@@ -53,12 +53,16 @@ class image_listener:
     def signal_callback(self,msg):
         
         self.sig_idx = msg.data
-        if msg.data not in [0,5]:
-            
-            self.sig_last_diff = msg.data
-            
+        if msg.data not in [5]:
             names = ["stop","cont","turn","round","nos"]
-            print(names[msg.data])
+            if self.sem_select == 0 and msg.data in [1]:
+                self.sig_last_diff = msg.data
+                print(names[msg.data])
+            elif self.sem_select == 1 and msg.data in [0,3,4]:
+                self.sig_last_diff = msg.data
+                print(names[msg.data])
+            
+            
     def lines_callback(self,msg):
         self.lines = msg.data
     def cmd_vel_callback(self,msg):
@@ -112,6 +116,7 @@ class pilot:
         self.zebraWait = False
         self.zebraTimer = 0
         self.nos = 0
+        self.iniciar = False
         rospy.on_shutdown(self.stop)
     def stop(self):
         print("Conductor down")
@@ -142,27 +147,29 @@ class pilot:
                     print("alto")
                 elif self.img_pross.sem_idx == 2:
                     #if self.pp.pp_state == 1:
-                    #if self.sem_select==0:
-                    if self.img_pross.sig_last_diff == 1 or self.img_pross.sem_select==0:
-                        if self.pp.pp_state != 1:
-                            self.pp.invocar_pp([self.odom.x + 0.55,0.0],0.0)
-                            if not self.wp_set:
-                                self.wait_point = [self.odom.x-0.30,self.odom.y+0.15]
-                                self.wp_set = True
-                                print("wp",self.wait_point)
-                            msg_t = UInt8()
-                            self.img_pross.sem_toggle_publisher.publish(msg_t)
-                            self.img_pross.sem_select = 1
-                            self.img_pross.sig_last_diff = 5
-                        self.estancado = False
-                    elif self.img_pross.sig_last_diff == 3 or self.img_pross.sem_select==1:
-                        if self.pp.pp_state != 1:
-                            #self.odom.reset()
-                            #self.pp.invocar_pp([self.odom.x-0.3,self.odom.y-0.3],2.0)
-                            self.pp.invocar_pp(self.wait_point,2.0)
-                            self.fuzzy = True
-                            #self.pp.pp_state = 1
-                            pass
+                    if self.img_pross.sem_select==0:
+                        if self.img_pross.sig_last_diff == 1:# or self.img_pross.sem_select==0:
+                            if self.pp.pp_state != 1:
+                                self.pp.invocar_pp([self.odom.x + 0.55,0.0],0.0)
+                                if not self.wp_set:
+                                    self.wait_point = [self.odom.x-0.30,self.odom.y+0.15]
+                                    self.wp_set = True
+                                    print("wp",self.wait_point)
+                                msg_t = UInt8()
+                                self.img_pross.sem_toggle_publisher.publish(msg_t)
+                                self.img_pross.sem_select = 1
+                                self.img_pross.sig_last_diff = 5
+                            #self.estancado = False
+                    #elif self.img_pross.sig_last_diff == 3 or self.img_pross.sem_select==1:
+                    else:
+                        if self.img_pross.sig_last_diff == 3 or True:
+                            if self.pp.pp_state != 1:
+                                #self.odom.reset()
+                                #self.pp.invocar_pp([self.odom.x-0.3,self.odom.y-0.2],2.0)
+                                self.pp.invocar_pp(self.wait_point,2.0)
+                                self.fuzzy = True
+                                #self.pp.pp_state = 1
+                                pass
                     print("siga",self.img_pross.sig_last_diff,self.pp.pp_state)
         if self.img_pross.sig_last_diff == 0:
             self.estancado = True
@@ -174,9 +181,10 @@ class pilot:
             self.pp.pp_state = 0
         elif self.pp.pp_state == 1:
             self.estancado = False
-            if self.img_pross.lines < 5 and self.fuzzy:
+            if self.img_pross.lines < 4 and self.fuzzy:
                 self.pp.pp_state = 2
                 self.fuzzy = False
+                print("lines retake",self.img_pross.lines)
         #Definir que mensajede velocidad enviar
         if self.estancado:
             msg.linear.x = 0
@@ -204,7 +212,10 @@ class pilot:
         if self.img_pross.sig_last_diff == 0:
             msg.linear.x = 0
             msg.angular.z = 0
-        self.twist_publisher.publish(msg)
+        if self.img_pross.sig_last_diff == 1:
+            self.iniciar = True
+        if self.iniciar:
+            self.twist_publisher.publish(msg)
         
         
     def run(self):

@@ -25,6 +25,8 @@ class fuzzy:
 
         self.manejar = False
 
+        self.max = [0,0]
+
         self.dt = 0.01
         rospy.init_node("fuzzy_cnt")
         rospy.Subscriber('/pp/points', Float32MultiArray, self.points_callback)
@@ -129,12 +131,19 @@ class fuzzy:
             print("pos",self.x,self.y)
             #w,v = getValues(dtheta,dlineal)
             dtheta *= np.pi/180
-            w = dtheta * 0.07
+            w = dtheta * 0.1
             v = dlineal * 0.1
+            if abs(v) > self.max[0]:
+                self.max[0] = abs(v)
+                print("v: ",v)
+            if abs(w) > self.max[1]:
+                self.max[1] = abs(w)
+                print("w: ",w)
             if dlineal < 0.1:
                 self.manejar = False
                 msg_t = UInt8()
                 self.finish_publisher.publish(msg_t)
+                print(self.max)
             print(dtheta,dlineal,w,v)
             msg.angular.z = w
             msg.linear.x = v

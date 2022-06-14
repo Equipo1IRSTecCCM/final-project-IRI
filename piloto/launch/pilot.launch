@@ -13,4 +13,5 @@
 	<node name="sign_detector" pkg="sign_detector" type="detector.py"/>
 	<!--node name="edge_detector" pkg="edge_detector" type="edger.py"/-->
 	<node name="pilot" pkg="piloto" type="dom.py"/>
+	<node pkg="rosbag" type="record" name="record_odom_rosbag" args="/odom"/>
 </launch>

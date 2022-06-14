@@ -106,7 +106,7 @@ class semaforo_gyr:
             cv2.putText(negro,str(round(self.rd,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
             cv2.putText(negro,str(round(self.gd,2)),(30,45),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
             if self.sem_idx == 0:
-                imgSemf = imagen_resize[int(imagen_resize.shape[0]/12):int(imagen_resize.shape[0]/3),int(imagen_resize.shape[1]*1/10):int(imagen_resize.shape[1]*3/10)]
+                imgSemf = imagen_resize[int(imagen_resize.shape[0]/12):int(imagen_resize.shape[0]/3),int(imagen_resize.shape[1]*1/10):int(imagen_resize.shape[1]*5/20)]
                 print("Sem1")
             else:
                 imgSemf = imagen_resize[int(imagen_resize.shape[0]/14):int(imagen_resize.shape[0]*3/12),int(imagen_resize.shape[1]*3/10):int(imagen_resize.shape[1]*6/10)]

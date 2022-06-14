@@ -82,7 +82,7 @@ class paso_zebra:
                     sigma = np.std(centros)
                     #negro = thresh
                     print("std_dev",sigma,"buenos",valCont)
-                    if sigma < 10 and valCont > 4:
+                    if sigma < 10 and valCont > 3:
                         enPasoZebra = True
             
             #cv2.putText(negro,"x:" + str(round(self.x,1)) + " y:"+str(round(self.y,1)),(50,50),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)

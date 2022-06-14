@@ -1,0 +1,16 @@
+<?xml version ="1.0" encoding="UTF-8"?>
+<launch>
+	<include file="$(find ros_deep_learning)/launch/video_source.ros1.launch"/>
+	<include file="$(find puzzlebot_autostart)/launch/puzzlebot_autostart.launch"/>
+	<node name="odom_node" pkg="odom_calc" type="odom_calc.py"/>
+	<!--node name="iris" pkg="color_identification" type="colorator.py"/-->
+	<arg name="node_start_delay" default="1.0"/>
+	<node name="follower" pkg="line_detection" type="lineador.py" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@'"/>
+	<node name="sem_detect" pkg="semaforo_detector" type="semaforo.py"/>
+	<node name="zebra_detect" pkg="zebra_detector" type="pasozebra.py"/>
+	<node name="pure_pursuit" pkg="pur_pur" type="pp_line.py"/>
+	<node name="fuzzy_cnt" pkg="fuzzy_controller" type="fuzzyny.py"/>
+	<node name="sign_detector" pkg="sign_detector" type="detector.py"/>
+	<!--node name="edge_detector" pkg="edge_detector" type="edger.py"/-->
+	<node name="pilot" pkg="piloto" type="dom.py"/>
+</launch>

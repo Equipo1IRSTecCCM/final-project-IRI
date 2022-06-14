@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import cv2
 import numpy as np
 
@@ -104,9 +103,9 @@ class line_follower:
         if continuar:
             img = cv2.cvtColor(imagen_resize,cv2.COLOR_BGR2GRAY)
             img_gaus = cv2.GaussianBlur(img,(3,3),cv2.BORDER_DEFAULT)
-            img_gaus = cv2.GaussianBlur(img_gaus,(3,3),cv2.BORDER_DEFAULT)
-            img = img_gaus[int(img_gaus.shape[0]*5/6):int(img_gaus.shape[0])-1,int(img_gaus.shape[1]*15/20):int(img_gaus.shape[1])-1]
-            _,img = cv2.threshold(img, 70, 255, cv2.THRESH_BINARY_INV)
+            #img_gaus = cv2.GaussianBlur(img_gaus,(3,3),cv2.BORDER_DEFAULT)
+            img_g = img_gaus[int(img_gaus.shape[0]*2/6):int(img_gaus.shape[0]*4/6),int(img_gaus.shape[1]*17/20):int(img_gaus.shape[1])-1]
+            _,img = cv2.threshold(img_g, 80, 255, cv2.THRESH_BINARY_INV)
 
             skel = self.skeletonize(img)
             lines = cv2.HoughLinesP(skel,0.1,np.pi/180*1.5,3,minLineLength=5,maxLineGap=100)
@@ -122,7 +121,7 @@ class line_follower:
                 print("No lineas")
             
             if continuar:
-                
+                '''
                 puntoMedio = [int(negro.shape[1]/2),int(negro.shape[0]-3)]
                 distancias = [self.getDistance(x1,y1,puntoMedio[0],puntoMedio[1]),self.getDistance(x2,y2,puntoMedio[0],puntoMedio[1])]
             
@@ -136,15 +135,28 @@ class line_follower:
                 else:
                     pendiente = float(y1-y2)/float(x1-x2)
                 pendiente_obj = 1.0
+                #cv2.putText(skel,str(round(pendiente,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
                 d = pendiente - pendiente_obj
 
                 d /= pendiente
 
                 print("Drol",d)
                 dtheta = d * 0.12
+                '''
+                idx = tamano.index(max(tamano))
+                x1,y1,x2,y2 = lines[0][idx]
+                cv2.line(negro,(x1,y1),(x2,y2),(255,255,255),1)
+                if x1 == x2:
+                    pendiente = 10
+                else:
+                    pendiente = float(y1-y2)/float(x1-x2)
+                if pendiente > 10:
+                    pendiente = 10
+                cv2.putText(skel,str(round(pendiente,1)) ,(10,10),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                dtheta = 0
                 
-                cv2.putText(negro,str(round(self.rd,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
-                cv2.putText(negro,str(round(self.gd,2)),(30,45),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                cv2.putText(skel,str(x1)+" "+str(x2),(10,20),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+                cv2.putText(skel,str(y1)+" "+str(y2),(10,30),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
 
 
                 
@@ -161,12 +173,13 @@ class line_follower:
                 cv2.putText(skel,str(round(dtheta,3)),(30,40),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
                 #publicar
                 
-                self.twist_publisher.publish(msg)
+                #self.twist_publisher.publish(msg)
 
             
-            cv2.putText(negro,"x:" + str(round(self.x,1)) + " y:"+str(round(self.y,1)),(50,50),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+            #cv2.putText(negro,"x:" + str(round(self.x,1)) + " y:"+str(round(self.y,1)),(50,50),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
+            
             msg_img = Image()
-            msg_img = self.bridge.cv2_to_imgmsg(skel)
+            msg_img = self.bridge.cv2_to_imgmsg(negro)
             self.debug_msg.publish(msg_img)
 
     def getDensitySmall(self,img):

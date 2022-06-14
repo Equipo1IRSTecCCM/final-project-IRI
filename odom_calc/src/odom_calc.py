@@ -27,7 +27,7 @@ class odometry:
         self.theta = 0.0
 
         #timer
-        self.dt = 0.02 #s
+        self.dt = 0.1 #s
 
         #init rospy
         rospy.init_node('odometry')
@@ -40,7 +40,7 @@ class odometry:
         #Crear timer
         self.t1 = rospy.Timer(rospy.Duration(self.dt),self.timer_callback)
         #Definir el rate de rospy
-        self.rate = rospy.Rate(50)
+        self.rate = rospy.Rate(10)
         #Indicar que hacer cuando se acabe
         rospy.on_shutdown(self.stop)
 

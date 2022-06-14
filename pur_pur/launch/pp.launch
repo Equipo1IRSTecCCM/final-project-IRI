@@ -2,6 +2,6 @@
 <launch>
 	<include file="$(find puzzlebot_autostart)/launch/puzzlebot_autostart.launch"/>
 	<node name="odom_node" pkg="odom_calc" type="odom_calc.py"/>
-	<node name="pp_node" pkg="pur_pur" type="pp.py"/>
+	<node name="pp_node" pkg="pur_pur" type="pp_line.py"/>
 	<node pkg="rosbag" type="record" name="record_odom_rosbag" args="/odom"/>
 </launch>

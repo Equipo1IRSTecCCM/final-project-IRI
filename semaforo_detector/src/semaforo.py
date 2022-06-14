@@ -33,8 +33,8 @@ class semaforo_gyr:
         rospy.init_node("semaforo_gyr")
 
         rospy.Subscriber('/video_source/raw',Image,self.source_callback)
-        rospy.Subscriber('/img_properties/green/density',Float32,self.g_callback)
-        rospy.Subscriber('/img_properties/red/density',Float32,self.r_callback)
+        #rospy.Subscriber('/img_properties/green/density',Float32,self.g_callback)
+        #rospy.Subscriber('/img_properties/red/density',Float32,self.r_callback)
     
         rospy.Subscriber('/img_processing/sem_toggle',UInt8, self.idx_callback)
         rospy.Subscriber('/odom', Pose2D, self.odom_callback)
@@ -106,7 +106,7 @@ class semaforo_gyr:
             cv2.putText(negro,str(round(self.rd,2)),(30,35),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
             cv2.putText(negro,str(round(self.gd,2)),(30,45),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
             if self.sem_idx == 0:
-                imgSemf = imagen_resize[int(imagen_resize.shape[0]/12):int(imagen_resize.shape[0]/3),0:int(imagen_resize.shape[1]*3/10)]
+                imgSemf = imagen_resize[int(imagen_resize.shape[0]/12):int(imagen_resize.shape[0]/3),int(imagen_resize.shape[1]*1/10):int(imagen_resize.shape[1]*3/10)]
                 print("Sem1")
             else:
                 imgSemf = imagen_resize[int(imagen_resize.shape[0]/14):int(imagen_resize.shape[0]*3/12),int(imagen_resize.shape[1]*3/10):int(imagen_resize.shape[1]*6/10)]
@@ -144,13 +144,14 @@ class semaforo_gyr:
                 print(len(imgSemf))
                 print(img_rect)
                 densities = [self.getDensity('r',img_rect),self.getDensity('y',img_rect),self.getDensity('g',img_rect)]
-                rect.append({'x':xr,'y':yr,'w':wr,'h':hr,'md':densities.index(max(densities)),'d':max(densities)})
+                rect.append({'x':xr,'y':yr,'w':wr,'h':hr,'md':densities.index(max(densities)),'d':densities[2]})
                 size.append(wr*hr)
         color = 4
+        cv2.putText(imgSef_gray,"Verde"+str(round(self.getDensity('g',imgSemf),5)),(0,40),cv2.FONT_HERSHEY_SIMPLEX,0.3,(255,255,255),1)
         if len(rect) > 0:
             print("Solo blob",rect)
             idx = size.index(max(size))
-            if rect[idx]['y'] < imgSemf.shape[0]/2 and rect[0]['md'] == 2:
+            if rect[idx]['y'] < imgSemf.shape[0]/2 and rect[0]['d'] >=0.2 or self.getDensity('g',imgSemf) >=0.99:
                 color = 2
                 #self.sem_verde = True
                 print("Verde",rect[0])

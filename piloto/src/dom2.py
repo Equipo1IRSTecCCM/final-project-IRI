@@ -34,13 +34,8 @@ class image_listener:
         self.v = 0
         self.w_e = 0
         self.v_e = 0
-        self.lines = 0
         #Uint8 semaforo
         self.sem_idx = 4
-        self.sem_select = 0
-        #Uint8 Senal
-        self.sig_idx = 5
-        self.sig_last_diff = 5
         #Uint8 pasoZebra
         self.enPasoZebra = 0
         self.sem_toggle_publisher = rospy.Publisher('/img_processing/sem_toggle',UInt8, queue_size=10)
@@ -48,19 +43,6 @@ class image_listener:
         rospy.Subscriber('/img_processing/edge_cmd_vel', Twist, self.edge_cmd_vel_callback)
         rospy.Subscriber('/img_processing/zebra',UInt8, self.zebra_callback)
         rospy.Subscriber('/img_processing/sem_Data',UInt8, self.semaforo_callback)
-        rospy.Subscriber('/img_processing/signal_idx',UInt8, self.signal_callback)
-        rospy.Subscriber('/img_processing/lines',UInt8, self.lines_callback)
-    def signal_callback(self,msg):
-        
-        self.sig_idx = msg.data
-        if msg.data not in [0,5]:
-            
-            self.sig_last_diff = msg.data
-            
-            names = ["stop","cont","turn","round","nos"]
-            print(names[msg.data])
-    def lines_callback(self,msg):
-        self.lines = msg.data
     def cmd_vel_callback(self,msg):
         self.w = msg.angular.z
         self.v = msg.linear.x
@@ -90,9 +72,8 @@ class pp_listener:
         msg_pp = Float32MultiArray()
         msg_pp.data = [wp[0],wp[1],type]
         print(msg_pp.data)
-        self.pp_state = 1
         self.pp_init_publisher.publish(msg_pp)
-        
+        self.pp_state = 1
 class pilot:
     def __init__(self):
         rospy.init_node("pilot")
@@ -107,32 +88,25 @@ class pilot:
         self.t1 = rospy.Timer(rospy.Duration(self.dt),self.timer_callback)
         self.rate = rospy.Rate(10)
         self.twist_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-        self.fuzzy = False
+        self.sem_select = 0
         self.estancado = False
-        self.zebraWait = False
-        self.zebraTimer = 0
-        self.nos = 0
+        self.continuar = True
         rospy.on_shutdown(self.stop)
     def stop(self):
         print("Conductor down")
     def timer_callback(self,time):
+        msg_t = UInt8()
+        self.img_pross.sem_toggle_publisher.publish(msg_t)
+        self.sem_select=1
         y_bias = 0.15
         msg = Twist()
-        #Checar si paso de zebra
-        if self.img_pross.enPasoZebra and self.pp.pp_state != 1:
-            self.estancado = True
-            print("zebra", "x ",self.odom.x," y ",self.odom.y)
-            if self.zebraTimer == 0:
-                self.zebraWait = True
-            else:
-                self.zebraWait = False
-            self.zebraTimer += 1
-        else:
-            self.zebraWait = False
-            self.zebraTimer = 0
-        #print(self.img_pross.sem_idx)
-        #Checar semaforo
-        if not self.zebraWait:
+        if self.continuar:
+            #Checar si paso de zebra
+            if self.img_pross.enPasoZebra and self.pp.pp_state != 1:
+                self.estancado = True
+                print("zebra", "x ",self.odom.x," y ",self.odom.y)
+            #print(self.img_pross.sem_idx)
+            #Checar semaforo
             if self.estancado:
                 if self.img_pross.sem_idx == 0:
                     self.estancado = True
@@ -142,47 +116,37 @@ class pilot:
                     print("alto")
                 elif self.img_pross.sem_idx == 2:
                     #if self.pp.pp_state == 1:
-                    #if self.sem_select==0:
-                    if self.img_pross.sig_last_diff == 1 or self.img_pross.sem_select==0:
+                    if self.sem_select==0:
                         if self.pp.pp_state != 1:
                             self.pp.invocar_pp([self.odom.x + 0.55,0.0],0.0)
                             if not self.wp_set:
-                                self.wait_point = [self.odom.x-0.30,self.odom.y+0.15]
+                                self.wait_point = [self.odom.x,self.odom.y]
                                 self.wp_set = True
                                 print("wp",self.wait_point)
                             msg_t = UInt8()
                             self.img_pross.sem_toggle_publisher.publish(msg_t)
-                            self.img_pross.sem_select = 1
-                            self.img_pross.sig_last_diff = 5
-                        self.estancado = False
-                    elif self.img_pross.sig_last_diff == 3 or self.img_pross.sem_select==1:
+                            self.sem_select=1
+                    else:
                         if self.pp.pp_state != 1:
                             #self.odom.reset()
-                            #self.pp.invocar_pp([self.odom.x-0.3,self.odom.y-0.3],2.0)
-                            self.pp.invocar_pp(self.wait_point,2.0)
-                            self.fuzzy = True
-                            #self.pp.pp_state = 1
-                            pass
-                    print("siga",self.img_pross.sig_last_diff,self.pp.pp_state)
-        if self.img_pross.sig_last_diff == 0:
-            self.estancado = True
+                            #self.pp.invocar_pp([0.1,-0.4],1.0)
+                            self.continuar = False
+                            self.pp.invocar_pp(self.wait_point,1.0)
+                    self.estancado = False
+                    print("siga")
+            if self.pp.pp_state == 2:
+                print("pp end")
+                self.estancado = False
+                self.pp.pp_state = 0
+            elif self.pp.pp_state == 1:
+                self.estancado = False
         
-            
-        if self.pp.pp_state == 2:
-            print("pp end")
-            self.estancado = False
-            self.pp.pp_state = 0
-        elif self.pp.pp_state == 1:
-            self.estancado = False
-            if self.img_pross.lines < 5 and self.fuzzy:
-                self.pp.pp_state = 2
-                self.fuzzy = False
         #Definir que mensajede velocidad enviar
         if self.estancado:
             msg.linear.x = 0
             msg.angular.z = 0
             #Invocar pure pursuit
-            print("Noni",self.pp.pp_state,self.odom.y < y_bias)
+            print(self.pp.pp_state,self.odom.y < y_bias)
             
         else:
             #Enviar pure pursuit
@@ -196,14 +160,10 @@ class pilot:
                 self.timer_max += 1
             #Enviar camara
             else:
-                msg.linear.x = self.img_pross.v
-                msg.angular.z = self.img_pross.w
-        if self.img_pross.sig_last_diff == 4 and self.nos < 10:
-            msg.linear.x *= 3
-            self.nos += 1
-        if self.img_pross.sig_last_diff == 0:
-            msg.linear.x = 0
-            msg.angular.z = 0
+                if self.continuar:
+                    msg.linear.x = self.img_pross.v
+                    msg.angular.z = self.img_pross.w
+        
         self.twist_publisher.publish(msg)
         
         

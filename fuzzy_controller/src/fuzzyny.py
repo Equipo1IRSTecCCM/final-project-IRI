@@ -24,7 +24,7 @@ class fuzzy:
         self.ygoal = 0
 
         self.manejar = False
-
+        self.X,self.Y,self.Za,self.Zl = self.read()
         self.max = [0,0]
 
         self.dt = 0.01
@@ -77,7 +77,7 @@ class fuzzy:
         val_l = self.Zl[idx_l][idx_a]
         return val_a,val_l
     def read(self):
-        p = "/home/puzzlebot/catkin_ws/src/line_detection/src/"
+        p = "/home/puzzlebot/catkin_ws/src/fuzzy_controller/src/"
         with open(p + 'az.csv', 'r') as read_obj:
             csv_reader = reader(read_obj)
             list_z = list(csv_reader)
@@ -127,12 +127,11 @@ class fuzzy:
             else:
                 dtheta = dtheta
             #print("dtheta: ", int(dtheta))
-
             print("pos",self.x,self.y)
-            #w,v = getValues(dtheta,dlineal)
-            dtheta *= np.pi/180
-            w = dtheta * 0.1
-            v = dlineal * 0.1
+            w,v = self.getValues(dtheta,dlineal)
+            #dtheta *= np.pi/180
+            #w = dtheta * 0.3
+            #v = dlineal * 0.1
             if abs(v) > self.max[0]:
                 self.max[0] = abs(v)
                 print("v: ",v)

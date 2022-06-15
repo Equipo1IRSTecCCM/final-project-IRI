@@ -38,7 +38,7 @@ class semaforo_gyr:
     
         rospy.Subscriber('/img_processing/sem_toggle',UInt8, self.idx_callback)
         rospy.Subscriber('/odom', Pose2D, self.odom_callback)
-        self.twist_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        #self.twist_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.datasemaforo = rospy.Publisher('/img_processing/sem_Data',UInt8, queue_size=10)
         self.semf_msg = rospy.Publisher('/semforo',Image,queue_size=10)
         self.t1 = rospy.Timer(rospy.Duration(self.dt),self.timer_callback)
@@ -172,7 +172,7 @@ class semaforo_gyr:
         msg.angular.y = 0
         msg.angular.z = 0
         #publicar
-        self.twist_publisher.publish(msg)
+        #self.twist_publisher.publish(msg)
         print("Muerte y destruccion o shutdown")
 
     def run(self):

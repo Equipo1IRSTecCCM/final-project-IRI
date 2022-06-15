@@ -13,7 +13,7 @@ class odom_listener:
         self.x = 0
         self.y = 0
         self.theta = 0
-        self.reinit_publisher = rospy.Publisher('/odom_reinit',UInt8, queue_size=10)
+        #self.reinit_publisher = rospy.Publisher('/odom_reinit',UInt8, queue_size=10)
         self.reset_done = False
         rospy.Subscriber('/odom', Pose2D, self.odom_callback)
     def odom_callback(self,msg):
@@ -25,7 +25,8 @@ class odom_listener:
         msg = UInt8()
         msg.data=1
         if not self.reset_done:
-            self.reinit_publisher.publish(msg)
+            #self.reinit_publisher.publish(msg)
+            pass
         self.reset_done = True
 class image_listener:
     def __init__(self):
@@ -112,6 +113,7 @@ class pilot:
         self.rate = rospy.Rate(10)
         self.twist_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.fuzzy = False
+        self.fuzzy_timer = 0
         self.estancado = False
         self.zebraWait = False
         self.zebraTimer = 0
@@ -162,7 +164,7 @@ class pilot:
                             #self.estancado = False
                     #elif self.img_pross.sig_last_diff == 3 or self.img_pross.sem_select==1:
                     else:
-                        if self.img_pross.sig_last_diff == 3 or True:
+                        if self.img_pross.sig_last_diff == 3:
                             if self.pp.pp_state != 1:
                                 #self.odom.reset()
                                 #self.pp.invocar_pp([self.odom.x-0.3,self.odom.y-0.2],2.0)
@@ -181,10 +183,12 @@ class pilot:
             self.pp.pp_state = 0
         elif self.pp.pp_state == 1:
             self.estancado = False
-            if self.img_pross.lines < 4 and self.fuzzy:
+            if self.img_pross.lines < 4 and self.fuzzy and self.fuzzy_timer < 5:
                 self.pp.pp_state = 2
                 self.fuzzy = False
                 print("lines retake",self.img_pross.lines)
+            if self.fuzzy:
+                self.fuzzy_timer +=1
         #Definir que mensajede velocidad enviar
         if self.estancado:
             msg.linear.x = 0
